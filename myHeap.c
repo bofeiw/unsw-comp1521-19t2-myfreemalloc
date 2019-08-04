@@ -95,9 +95,60 @@ void freeHeap(void) {
 
 /** Allocate a chunk of memory large enough to store `size' bytes. */
 void *myMalloc(int size) {
-    /// TODO ///
+    if (size < 1) {
+        return NULL;
+    }
 
-    return NULL; // this just keeps the compiler quiet
+    // round up to a multiple of 4
+    size = size + (4 - (size % 4)) % 4;
+
+    header* temp = *Heap.freeList;
+    header* smallestFree = NULL;
+    while (temp->size > 0) {
+        printf("size: %d\n", ((header *) temp)->size);
+        // if this header is available
+        if (temp->status == FREE && temp->size >= size) {
+            if (smallestFree == NULL) {
+                // first found header
+                smallestFree = temp;
+            } else if (temp->size < smallestFree->size) {
+                // this header is smaller
+                smallestFree = temp;
+            }
+        }
+        ++temp;
+    }
+    printf("smallest size: %d\n", smallestFree->size);
+
+    if (smallestFree == NULL) {
+        return NULL;
+    }
+
+    int remainingSize = smallestFree->size - size;
+    if (remainingSize == 0) {
+        // delete from list
+    } else {
+        header* remaining = ((void *) smallestFree) + size;
+        remaining->size = smallestFree->size - size;
+        remaining->status = smallestFree->status = FREE;
+
+        smallestFree->size = size;
+
+        int i = 0;
+        temp = *Heap.freeList;
+        while (((header *) Heap.freeList[i])->size > 0) {
+            if ((header *) Heap.freeList[i] == smallestFree) {
+                printf("...: %d\n", smallestFree->size);
+                Heap.freeList[i] = remaining;
+                break;
+            }
+            ++i;
+        }
+    }
+
+    smallestFree->status = ALLOC;
+
+    return smallestFree;
 }
 
 /** Deallocate a chunk of memory. */
