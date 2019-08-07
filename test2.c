@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sysexits.h>
+#include<time.h>
 
 #include "myHeap.h"
 
@@ -34,6 +35,7 @@ void freeList (List);
 
 int main (void)
 {
+//	srand(0);
 #ifdef USE_MYHEAP
 	initHeap (10000);
 #endif

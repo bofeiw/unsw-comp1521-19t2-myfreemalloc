@@ -74,7 +74,7 @@ int initHeap(int size) {
     ((header *) Heap.heapMem)->size = size;
 
     // allocate free list
-    Heap.freeList = calloc(1, size / MIN_CHUNK * sizeof(void*));
+    Heap.freeList = calloc(1, size / MIN_CHUNK * sizeof(void *));
     if (Heap.freeList == NULL) {
         // cannot allocate free list
         return -1;
@@ -85,8 +85,8 @@ int initHeap(int size) {
 
     // init other variables
     Heap.heapSize = size;
-    Heap.nFree = size / MIN_CHUNK;
-    Heap.freeElems = 1;
+    Heap.freeElems = size / MIN_CHUNK;
+    Heap.nFree = 1;
 
     return 0;
 }
@@ -106,53 +106,46 @@ void *myMalloc(int size) {
     // round up to a multiple of 4
     size = size + (4 - (size % 4)) % 4;
 
-    header* temp = *Heap.freeList;
-    header* smallestFree = NULL;
-    while (temp->size > 0) {
-        printf("size: %d\n", ((header *) temp)->size);
-        // if this header is available
-        if (temp->status == FREE && temp->size >= size) {
-            if (smallestFree == NULL) {
-                // first found header
-                smallestFree = temp;
-            } else if (temp->size < smallestFree->size) {
-                // this header is smaller
-                smallestFree = temp;
-            }
-        }
-        ++temp;
-    }
-    printf("smallest size: %d\n", smallestFree->size);
+    const int minSize = size + sizeof(header);
+    int minHeaderIndex = -1;
 
-    if (smallestFree == NULL) {
+    // find the minimum eligible chunk
+    for (int i = 0; i < Heap.nFree; ++i) {
+        header *currHeader = (header *) Heap.freeList[i];
+        if (currHeader->size >= minSize && minHeaderIndex < 0) {
+            minHeaderIndex = i;
+        } else if (minHeaderIndex >= 0 && currHeader->size > ((header *) Heap.freeList[minHeaderIndex])->size) {
+            minHeaderIndex = i;
+        }
+    }
+
+    if (minHeaderIndex < 0) {
+        // no such free chunk
         return NULL;
     }
 
-    int remainingSize = smallestFree->size - size;
-    if (remainingSize == 0) {
-        // delete from list
+    header *minHeader = (header *) Heap.freeList[minHeaderIndex];
+    if (minHeader->size <= minSize + MIN_CHUNK) {
+        // allocate the whole chunk
+        // TODO implement this case
+        fprintf(stderr, "hi\n");
     } else {
-        header* remaining = ((void *) smallestFree) + size;
-        remaining->size = smallestFree->size - size;
-        remaining->status = smallestFree->status = FREE;
+        // split into two chunks
+        uint nextSize = minHeader->size - size;
+        minHeader->size = size;
+        minHeader->status = ALLOC;
 
-        smallestFree->size = size;
+        header *nextFree = minHeader + size;//(size / sizeof(header *));
+        nextFree->size = nextSize;
+        nextFree->status = FREE;
 
-        int i = 0;
-        temp = *Heap.freeList;
-        while (((header *) Heap.freeList[i])->size > 0) {
-            if ((header *) Heap.freeList[i] == smallestFree) {
-                printf("...: %d\n", smallestFree->size);
-                Heap.freeList[i] = remaining;
-                break;
-            }
-            ++i;
-        }
+        // update free list
+        // in this case, only need to change the address at minHeaderIndex to nextFree
+        // because there is no deletion and the order of addresses is preserved
+        Heap.freeList[minHeaderIndex] = nextFree;
+        return minHeader + sizeof(header);
     }
-
-    smallestFree->status = ALLOC;
-
-    return smallestFree;
+    return NULL;
 }
 
 /** Deallocate a chunk of memory. */
@@ -178,6 +171,7 @@ int heapOffset(void *obj) {
 
 /** Dump the contents of the heap (for testing/debugging). */
 void dumpHeap(void) {
+    return;
     int onRow = 0;
 
     // We iterate over the heap, chunk by chunk; we assume that the
@@ -200,6 +194,11 @@ void dumpHeap(void) {
                         stderr,
                         "myHeap: corrupted heap: chunk status %08x\n",
                         chunk->status
+                );
+                fprintf(
+                        stderr,
+                        "address %p\n",
+                        chunk
                 );
                 exit(1);
         }
