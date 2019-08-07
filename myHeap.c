@@ -62,17 +62,21 @@ int initHeap(int size) {
     // round up to a multiple of 4
     size = size + (4 - (size % 4)) % 4;
 
-    // initialise heap memory
+    // allocate heap memory
     Heap.heapMem = calloc(1, size);
     if (Heap.heapMem == NULL) {
+        // cannot allocate memory
         return -1;
     }
+
+    // initialise the heap
     ((header *) Heap.heapMem)->status = FREE;
     ((header *) Heap.heapMem)->size = size;
 
-    // initialise heap wrapper
-    Heap.freeList = calloc(1, size / MIN_CHUNK);
+    // allocate free list
+    Heap.freeList = calloc(1, size / MIN_CHUNK * sizeof(void*));
     if (Heap.freeList == NULL) {
+        // cannot allocate free list
         return -1;
     }
 
@@ -81,8 +85,8 @@ int initHeap(int size) {
 
     // init other variables
     Heap.heapSize = size;
-    Heap.nFree = 0;
-    Heap.freeElems = 0;
+    Heap.nFree = size / MIN_CHUNK;
+    Heap.freeElems = 1;
 
     return 0;
 }
