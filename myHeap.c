@@ -98,6 +98,10 @@ void freeHeap(void) {
     free(Heap.freeList);
 }
 
+static int chunkCmp(const void *chunk1, const void *chunk2) {
+    return (addr) chunk1 - (addr) chunk2;
+}
+
 /** Allocate a chunk of memory large enough to store `size' bytes. */
 void *myMalloc(int size) {
     if (size < 1) {
@@ -113,9 +117,10 @@ void *myMalloc(int size) {
     // find the minimum eligible chunk
     for (int i = 0; i < Heap.nFree; ++i) {
         header *currHeader = (header *) Heap.freeList[i];
-        if (currHeader->size >= minSize && minHeaderIndex < 0) {
+        if (minHeaderIndex < 0 && currHeader->size >= minSize) {
             minHeaderIndex = i;
-        } else if (minHeaderIndex >= 0 && currHeader->size > ((header *) Heap.freeList[minHeaderIndex])->size) {
+        } else if (minHeaderIndex >= 0 && currHeader->size >= minSize &&
+                   currHeader->size < ((header *) Heap.freeList[minHeaderIndex])->size) {
             minHeaderIndex = i;
         }
     }
@@ -128,8 +133,10 @@ void *myMalloc(int size) {
     header *minHeader = (header *) Heap.freeList[minHeaderIndex];
     if (minHeader->size <= minSize + MIN_CHUNK) {
         // allocate the whole chunk
-        // TODO implement this case
         fprintf(stderr, "hi\n");
+        minHeader->status = ALLOC;
+        Heap.freeList[minHeaderIndex] = Heap.freeList[--(Heap.nFree)];
+        qsort(Heap.freeList, Heap.nFree, sizeof(header *), chunkCmp);
     } else {
         // split into two chunks
         uint nextSize = minHeader->size - minSize;
@@ -154,18 +161,13 @@ void *myMalloc(int size) {
         // in this case, only need to change the address at minHeaderIndex to nextFree
         // because there is no deletion and the order of addresses is preserved
         Heap.freeList[minHeaderIndex] = nextFree;
+    }
 
-        addr headerAddr = (addr) minHeader;
-        addr dataAddr = headerAddr + sizeof(header);
+    addr headerAddr = (addr) minHeader;
+    addr dataAddr = headerAddr + sizeof(header);
 //        printf("(void *) dataAddr: %p\n" , (void *) dataAddr);
 
-        return (void *) dataAddr;
-    }
-    return NULL;
-}
-
-int chunkCmp(const void *chunk1, const void *chunk2) {
-    return (addr) chunk1 - (addr) chunk2;
+    return (void *) dataAddr;
 }
 
 static void exitInvalidFree() {
