@@ -225,8 +225,11 @@ static void myFreeChunk(header *prevChunk, header *chunk, header *nextChunk) {
 
 /** Deallocate a chunk of memory. */
 void myFree(void *obj) {
-    if (!obj) {
-        exitInvalidFree();
+    if (obj == NULL) {
+        // If a null pointer is passed as argument, no action occurs.
+        // https://linux.die.net/man/3/free
+        // https://webcms3.cse.unsw.edu.au/COMP1521/19T2/forums/2732637
+        return;
     }
 
     // find the locations of obj
