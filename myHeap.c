@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 
 #include "myHeap.h"
 
@@ -195,8 +194,8 @@ static void myFreeChunk(header *prevChunk, header *chunk, header *nextChunk) {
 //    printf("chunk %p\n", chunk);
 
     // try to merge adjacent free chunks
-    bool prevFree = prevChunk != NULL && prevChunk->status == FREE;
-    bool nextFree = nextChunk != NULL && nextChunk->status == FREE;
+    int prevFree = prevChunk != NULL && prevChunk->status == FREE;
+    int nextFree = nextChunk != NULL && nextChunk->status == FREE;
     if (prevFree && nextFree) {
         // join all three chunks
 //        printf("entering join all three chunks\n");
