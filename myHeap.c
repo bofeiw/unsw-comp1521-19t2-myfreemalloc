@@ -189,33 +189,36 @@ static void myFreeChunk(header *prevChunk, header *chunk, header *nextChunk) {
         exitInvalidFree();
         return;
     }
-    printf("entering myfreechunk\n");
-    printf("chunk %p\n", chunk);
+//    printf("entering myfreechunk\n");
+//    printf("chunk %p\n", chunk);
 
     // try to merge adjacent free chunks
     bool prevFree = prevChunk != NULL && prevChunk->status == FREE;
     bool nextFree = nextChunk != NULL && nextChunk->status == FREE;
     if (prevFree && nextFree) {
         // join all three chunks
-        printf("entering join all three chunks\n");
+//        printf("entering join all three chunks\n");
+        prevChunk->status = FREE;
+        prevChunk->size += chunk->size + nextChunk->size;
+        Heap.freeList[indexOfChunk(nextChunk)] = Heap.freeList[--(Heap.nFree)];
     } else if (prevFree) {
         // join with previous chunk
 //        printf("entering join with previous chunk\n");
+        prevChunk->status = FREE;
         prevChunk->size += chunk->size;
-//        Heap.freeList[indexOfChunk(chunk)] = Heap.freeList[--(Heap.nFree)];
     } else if (nextFree) {
         // join with next chunk
 //        printf("entering join with next chunk\n");
+        chunk->status = FREE;
         chunk->size += nextChunk->size;
         Heap.freeList[indexOfChunk(nextChunk)] = chunk;
-//        Heap.freeList[indexOfChunk(nextChunk)] = Heap.freeList[--(Heap.nFree)];
     } else {
         // free only the chunk
 //        printf("entering free only the chunk\n");
         chunk->status = FREE;
         Heap.freeList[Heap.nFree++] = chunk;
-        qsort(Heap.freeList, Heap.nFree, sizeof(header *), chunkCmp);
     }
+    qsort(Heap.freeList, Heap.nFree, sizeof(header *), chunkCmp);
 }
 
 /** Deallocate a chunk of memory. */
