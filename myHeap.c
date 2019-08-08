@@ -131,19 +131,34 @@ void *myMalloc(int size) {
         fprintf(stderr, "hi\n");
     } else {
         // split into two chunks
-        uint nextSize = minHeader->size - size;
-        minHeader->size = size;
+        uint nextSize = minHeader->size - minSize;
+        minHeader->size = minSize;
         minHeader->status = ALLOC;
 
-        header *nextFree = minHeader + size;//(size / sizeof(header *));
+        // calculate next free chunk's address
+        // minSize is the size of the chunk allocated this time
+        // add it to the base address gets the next free chunk
+        header *nextFree = (header *)(((addr)minHeader) + minSize);
         nextFree->size = nextSize;
         nextFree->status = FREE;
+
+//        printf("minHeader: %p\n" , minHeader);
+//        printf("nextFree: %p\n" , nextFree);
+//        printf("size: %d\n" , size);
+//        printf("next status: %x\n" , nextFree->status);
+//        printf("next status&: %p\n" , &(nextFree->status));
+//        printf("minHeader + size: %p\n" , minHeader + size);
 
         // update free list
         // in this case, only need to change the address at minHeaderIndex to nextFree
         // because there is no deletion and the order of addresses is preserved
         Heap.freeList[minHeaderIndex] = nextFree;
-        return minHeader + sizeof(header);
+
+        addr headerAddr = (addr) minHeader;
+        addr dataAddr = headerAddr + sizeof(header);
+//        printf("(void *) dataAddr: %p\n" , (void *) dataAddr);
+
+        return (void *) dataAddr;
     }
     return NULL;
 }
@@ -171,7 +186,7 @@ int heapOffset(void *obj) {
 
 /** Dump the contents of the heap (for testing/debugging). */
 void dumpHeap(void) {
-    return;
+//    return;
     int onRow = 0;
 
     // We iterate over the heap, chunk by chunk; we assume that the
@@ -182,6 +197,11 @@ void dumpHeap(void) {
         header *chunk = (header *) curr;
 
         char stat;
+//        fprintf(
+//                stdout,
+//                "address %p\n",
+//                chunk
+//        );
         switch (chunk->status) {
             case FREE:
                 stat = 'F';
@@ -200,6 +220,7 @@ void dumpHeap(void) {
                         "address %p\n",
                         chunk
                 );
+                printf("chunk status&: %p\n" , &(chunk->status));
                 exit(1);
         }
 

@@ -35,7 +35,7 @@ void freeList (List);
 
 int main (void)
 {
-//	srand(0);
+	srand(0);
 #ifdef USE_MYHEAP
 	initHeap (10000);
 #endif
@@ -64,6 +64,8 @@ int main (void)
 List insert (List L, int n)
 {
 	Node *new = MEM_ALLOC (sizeof (Node));
+//	printf("size node: %lu\n", sizeof (Node));
+//	printf("new->data&: %p\n", &(new->data));
 	if (new == NULL) errx (1, "couldn't allocate Node");
 	new->data = n;
 	Node *prev = NULL;
