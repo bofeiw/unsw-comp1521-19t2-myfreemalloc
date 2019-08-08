@@ -97,6 +97,7 @@ void freeHeap(void) {
     free(Heap.freeList);
 }
 
+/** comparison function for sorting freelist in */
 static int chunkCmp(const void *chunk1, const void *chunk2) {
     return (addr) chunk1 - (addr) chunk2;
 }
@@ -110,10 +111,11 @@ void *myMalloc(int size) {
     // round up to a multiple of 4
     size = size + (4 - (size % 4)) % 4;
 
+    // minimum size required for allocation
     const int minSize = size + sizeof(header);
-    int minHeaderIndex = -1;
 
     // find the minimum eligible chunk
+    int minHeaderIndex = -1;
     for (int i = 0; i < Heap.nFree; ++i) {
         header *currHeader = (header *) Heap.freeList[i];
         if (minHeaderIndex < 0 && currHeader->size >= minSize) {
@@ -125,19 +127,20 @@ void *myMalloc(int size) {
     }
 
     if (minHeaderIndex < 0) {
-        // no such free chunk
+        // no free chunk suited for this size
         return NULL;
     }
 
+    // allocate memory, minHeader is the header of allocated memory
     header *minHeader = (header *) Heap.freeList[minHeaderIndex];
     if (minHeader->size <= minSize + MIN_CHUNK) {
         // allocate the whole chunk
-        fprintf(stderr, "hi\n");
         minHeader->status = ALLOC;
         Heap.freeList[minHeaderIndex] = Heap.freeList[--(Heap.nFree)];
         qsort(Heap.freeList, Heap.nFree, sizeof(header *), chunkCmp);
     } else {
         // split into two chunks
+        // mark the lower chunk to be allocated
         uint nextSize = minHeader->size - minSize;
         minHeader->size = minSize;
         minHeader->status = ALLOC;
@@ -149,31 +152,25 @@ void *myMalloc(int size) {
         nextFree->size = nextSize;
         nextFree->status = FREE;
 
-//        printf("minHeader: %p\n" , minHeader);
-//        printf("nextFree: %p\n" , nextFree);
-//        printf("size: %d\n" , size);
-//        printf("next status: %x\n" , nextFree->status);
-//        printf("next status&: %p\n" , &(nextFree->status));
-//        printf("minHeader + size: %p\n" , minHeader + size);
-
         // update free list
         // in this case, only need to change the address at minHeaderIndex to nextFree
         // because there is no deletion and the order of addresses is preserved
         Heap.freeList[minHeaderIndex] = nextFree;
     }
 
+    // calculate and return the usable address of the chunk
     addr headerAddr = (addr) minHeader;
     addr dataAddr = headerAddr + sizeof(header);
-//        printf("(void *) dataAddr: %p\n" , (void *) dataAddr);
-
     return (void *) dataAddr;
 }
 
+/** print and exit when attempting to free unallocated chunk **/
 static void exitInvalidFree() {
     fprintf(stderr, "Attempt to free unallocated chunk\n");
     exit(1);
 }
 
+/** find the index of the chunk in the freelist, -1 if not exist **/
 static int indexOfChunk(const header *chunk) {
     for (int i = 0; i < Heap.nFree; ++i) {
         if (Heap.freeList[i] == chunk) {
@@ -190,35 +187,31 @@ static void myFreeChunk(header *prevChunk, header *chunk, header *nextChunk) {
         exitInvalidFree();
         return;
     }
-//    printf("entering myfreechunk\n");
-//    printf("chunk %p\n", chunk);
 
     // try to merge adjacent free chunks
     int prevFree = prevChunk != NULL && prevChunk->status == FREE;
     int nextFree = nextChunk != NULL && nextChunk->status == FREE;
     if (prevFree && nextFree) {
         // join all three chunks
-//        printf("entering join all three chunks\n");
         prevChunk->status = FREE;
         prevChunk->size += chunk->size + nextChunk->size;
         Heap.freeList[indexOfChunk(nextChunk)] = Heap.freeList[--(Heap.nFree)];
     } else if (prevFree) {
         // join with previous chunk
-//        printf("entering join with previous chunk\n");
         prevChunk->status = FREE;
         prevChunk->size += chunk->size;
     } else if (nextFree) {
         // join with next chunk
-//        printf("entering join with next chunk\n");
         chunk->status = FREE;
         chunk->size += nextChunk->size;
         Heap.freeList[indexOfChunk(nextChunk)] = chunk;
     } else {
         // free only the chunk
-//        printf("entering free only the chunk\n");
         chunk->status = FREE;
         Heap.freeList[Heap.nFree++] = chunk;
     }
+
+    // make sure the addresses are sorted in increasing order
     qsort(Heap.freeList, Heap.nFree, sizeof(header *), chunkCmp);
 }
 
@@ -231,20 +224,18 @@ void myFree(void *obj) {
         return;
     }
 
-    // find the locations of obj
-//    printf("entering myFree %p\n", obj);
-
+    // find the locations of obj, and record its previous location
     header *prevAddr = NULL;
     header *nextAddr = NULL;
     addr curr = (addr) Heap.heapMem;
     while (curr < heapMaxAddr()) {
         header *chunk = (header *) curr;
-        nextAddr = curr < heapMaxAddr() ? (header *) (curr + chunk->size) : NULL;
 
-//        printf("iterating chunk %p\n", chunk);
         if (&(chunk->data) == obj) {
-            // found the obj chunk
-//            printf("found chunk %p\n", chunk);
+            // found the obj chunk, calculate next chunk address
+            nextAddr = curr < heapMaxAddr() ? (header *) (curr + chunk->size) : NULL;
+
+            // free and merge the chunks
             myFreeChunk(prevAddr, chunk, nextAddr);
             return;
         }
@@ -253,6 +244,7 @@ void myFree(void *obj) {
         curr += chunk->size;
     }
 
+    // obj not exist
     exitInvalidFree();
 }
 
@@ -274,7 +266,6 @@ int heapOffset(void *obj) {
 
 /** Dump the contents of the heap (for testing/debugging). */
 void dumpHeap(void) {
-//    return;
     int onRow = 0;
 
     // We iterate over the heap, chunk by chunk; we assume that the
@@ -285,11 +276,6 @@ void dumpHeap(void) {
         header *chunk = (header *) curr;
 
         char stat;
-//        fprintf(
-//                stdout,
-//                "address %p\n",
-//                chunk
-//        );
         switch (chunk->status) {
             case FREE:
                 stat = 'F';
@@ -303,12 +289,6 @@ void dumpHeap(void) {
                         "myHeap: corrupted heap: chunk status %08x\n",
                         chunk->status
                 );
-                fprintf(
-                        stderr,
-                        "address %p\n",
-                        chunk
-                );
-                printf("chunk status&: %p\n", &(chunk->status));
                 exit(1);
         }
 

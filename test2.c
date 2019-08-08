@@ -35,7 +35,7 @@ void freeList (List);
 
 int main (void)
 {
-	srand(0);
+//	srand(RAND);
 #ifdef USE_MYHEAP
 	initHeap (10000);
 #endif
