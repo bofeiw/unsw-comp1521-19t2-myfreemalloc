@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "myHeap.h"
 
@@ -138,7 +139,7 @@ void *myMalloc(int size) {
         // calculate next free chunk's address
         // minSize is the size of the chunk allocated this time
         // add it to the base address gets the next free chunk
-        header *nextFree = (header *)(((addr)minHeader) + minSize);
+        header *nextFree = (header *) (((addr) minHeader) + minSize);
         nextFree->size = nextSize;
         nextFree->status = FREE;
 
@@ -163,9 +164,73 @@ void *myMalloc(int size) {
     return NULL;
 }
 
+int chunkCmp(const void *chunk1, const void *chunk2) {
+    header *header1 = (header *)chunk1;
+//    header *header2 = (header *)chunk2;
+    if (header1->status == FREE) {
+        return -1;
+    }
+    return (addr) chunk1 - (addr)chunk2;
+}
+
+/** free chunk and possibly merge prev chunk and next chunk if they are free **/
+static void myFreeChunk(header *prevChunk, header *chunk, header *nextChunk) {
+    if (!chunk || chunk->status == FREE) {
+        // obj does not represent an allocated chunk in the heap
+        fprintf(stderr, "Attempt to free unallocated chunk\n");
+        return;
+    }
+    printf("entering myfreechunk\n");
+    printf("prev chunk %p\n", prevChunk);
+    printf("chunk %p\n", chunk);
+    printf("next chunk %p\n", nextChunk);
+
+
+    // free chunk
+    chunk->status = FREE;
+    bool prevFree = prevChunk != NULL && prevChunk->status == FREE;
+    bool nextFree = nextChunk != NULL && nextChunk->status == FREE;
+    if (prevFree && nextFree) {
+        // join all three chunks
+        printf("entering join all three chunks\n");
+    } else if (prevFree) {
+        // join with previous chunk
+        printf("entering join with previous chunk\n");
+    } else if (nextFree) {
+        // join with next chunk
+        printf("entering join with next chunk\n");
+    } else {
+        // free only the chunk
+        printf("entering free only the chunk\n");
+        Heap.freeList[Heap.nFree] = chunk;
+        ++Heap.nFree;
+        qsort(Heap.freeList, Heap.nFree, sizeof(header *), chunkCmp);
+    }
+}
+
 /** Deallocate a chunk of memory. */
 void myFree(void *obj) {
-    /// TODO ///
+    // find the locations of obj
+    printf("entering myFree %p\n", obj);
+
+    header *prevAddr = NULL;
+    header *nextAddr = NULL;
+    addr curr = (addr) Heap.heapMem;
+    while (curr < heapMaxAddr()) {
+        header *chunk = (header *) curr;
+        nextAddr = curr < heapMaxAddr() ? (header *) (curr + chunk->size) : NULL;
+
+        printf("iterating chunk %p\n", chunk);
+        if (&(chunk->data) == obj) {
+            // found the obj chunk
+            printf("found chunk %p\n", chunk);
+            myFreeChunk(prevAddr, chunk, nextAddr);
+            return;
+        }
+
+        prevAddr = chunk;
+        curr += chunk->size;
+    }
 }
 
 /** Return the first address beyond the range of the heap. */
@@ -220,7 +285,7 @@ void dumpHeap(void) {
                         "address %p\n",
                         chunk
                 );
-                printf("chunk status&: %p\n" , &(chunk->status));
+                printf("chunk status&: %p\n", &(chunk->status));
                 exit(1);
         }
 
