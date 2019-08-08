@@ -165,29 +165,34 @@ void *myMalloc(int size) {
 }
 
 int chunkCmp(const void *chunk1, const void *chunk2) {
-    header *header1 = (header *)chunk1;
-//    header *header2 = (header *)chunk2;
-    if (header1->status == FREE) {
-        return -1;
+    return (addr) chunk1 - (addr) chunk2;
+}
+
+static void exitInvalidFree() {
+    fprintf(stderr, "Attempt to free unallocated chunk\n");
+    exit(1);
+}
+
+static int indexOfChunk(const header *chunk) {
+    for (int i = 0; i < Heap.nFree; ++i) {
+        if (Heap.freeList[i] == chunk) {
+            return i;
+        }
     }
-    return (addr) chunk1 - (addr)chunk2;
+    return -1;
 }
 
 /** free chunk and possibly merge prev chunk and next chunk if they are free **/
 static void myFreeChunk(header *prevChunk, header *chunk, header *nextChunk) {
     if (!chunk || chunk->status == FREE) {
         // obj does not represent an allocated chunk in the heap
-        fprintf(stderr, "Attempt to free unallocated chunk\n");
+        exitInvalidFree();
         return;
     }
     printf("entering myfreechunk\n");
-    printf("prev chunk %p\n", prevChunk);
     printf("chunk %p\n", chunk);
-    printf("next chunk %p\n", nextChunk);
 
-
-    // free chunk
-    chunk->status = FREE;
+    // try to merge adjacent free chunks
     bool prevFree = prevChunk != NULL && prevChunk->status == FREE;
     bool nextFree = nextChunk != NULL && nextChunk->status == FREE;
     if (prevFree && nextFree) {
@@ -195,23 +200,32 @@ static void myFreeChunk(header *prevChunk, header *chunk, header *nextChunk) {
         printf("entering join all three chunks\n");
     } else if (prevFree) {
         // join with previous chunk
-        printf("entering join with previous chunk\n");
+//        printf("entering join with previous chunk\n");
+        prevChunk->size += chunk->size;
+//        Heap.freeList[indexOfChunk(chunk)] = Heap.freeList[--(Heap.nFree)];
     } else if (nextFree) {
         // join with next chunk
-        printf("entering join with next chunk\n");
+//        printf("entering join with next chunk\n");
+        chunk->size += nextChunk->size;
+        Heap.freeList[indexOfChunk(nextChunk)] = chunk;
+//        Heap.freeList[indexOfChunk(nextChunk)] = Heap.freeList[--(Heap.nFree)];
     } else {
         // free only the chunk
-        printf("entering free only the chunk\n");
-        Heap.freeList[Heap.nFree] = chunk;
-        ++Heap.nFree;
+//        printf("entering free only the chunk\n");
+        chunk->status = FREE;
+        Heap.freeList[Heap.nFree++] = chunk;
         qsort(Heap.freeList, Heap.nFree, sizeof(header *), chunkCmp);
     }
 }
 
 /** Deallocate a chunk of memory. */
 void myFree(void *obj) {
+    if (!obj) {
+        exitInvalidFree();
+    }
+
     // find the locations of obj
-    printf("entering myFree %p\n", obj);
+//    printf("entering myFree %p\n", obj);
 
     header *prevAddr = NULL;
     header *nextAddr = NULL;
@@ -220,10 +234,10 @@ void myFree(void *obj) {
         header *chunk = (header *) curr;
         nextAddr = curr < heapMaxAddr() ? (header *) (curr + chunk->size) : NULL;
 
-        printf("iterating chunk %p\n", chunk);
+//        printf("iterating chunk %p\n", chunk);
         if (&(chunk->data) == obj) {
             // found the obj chunk
-            printf("found chunk %p\n", chunk);
+//            printf("found chunk %p\n", chunk);
             myFreeChunk(prevAddr, chunk, nextAddr);
             return;
         }
@@ -231,6 +245,8 @@ void myFree(void *obj) {
         prevAddr = chunk;
         curr += chunk->size;
     }
+
+    exitInvalidFree();
 }
 
 /** Return the first address beyond the range of the heap. */
