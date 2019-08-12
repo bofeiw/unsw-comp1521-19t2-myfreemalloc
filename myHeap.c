@@ -99,7 +99,7 @@ void freeHeap(void) {
 
 /** comparison function for sorting freelist in */
 static int chunkCmp(const void *chunk1, const void *chunk2) {
-    return (addr) chunk1 - (addr) chunk2;
+    return *((void **)chunk1) > *((void **)chunk2) ? 1 : -1;
 }
 
 /** Allocate a chunk of memory large enough to store `size' bytes. */
@@ -137,7 +137,7 @@ void *myMalloc(int size) {
         // allocate the whole chunk
         minHeader->status = ALLOC;
         Heap.freeList[minHeaderIndex] = Heap.freeList[--(Heap.nFree)];
-        qsort(Heap.freeList, Heap.nFree, sizeof(header *), chunkCmp);
+        qsort(Heap.freeList, Heap.nFree, sizeof(void *), chunkCmp);
     } else {
         // split into two chunks
         // mark the lower chunk to be allocated
@@ -195,7 +195,9 @@ static void myFreeChunk(header *prevChunk, header *chunk, header *nextChunk) {
         // join all three chunks
         prevChunk->status = FREE;
         prevChunk->size += chunk->size + nextChunk->size;
-        Heap.freeList[indexOfChunk(nextChunk)] = Heap.freeList[--(Heap.nFree)];
+        int nextChunkIndex = indexOfChunk(nextChunk);
+        --(Heap.nFree);
+        Heap.freeList[nextChunkIndex] = Heap.freeList[Heap.nFree];
     } else if (prevFree) {
         // join with previous chunk
         prevChunk->status = FREE;
@@ -212,7 +214,7 @@ static void myFreeChunk(header *prevChunk, header *chunk, header *nextChunk) {
     }
 
     // make sure the addresses are sorted in increasing order
-    qsort(Heap.freeList, Heap.nFree, sizeof(header *), chunkCmp);
+    qsort(Heap.freeList, Heap.nFree, sizeof(void *), chunkCmp);
 }
 
 /** Deallocate a chunk of memory. */
@@ -233,7 +235,7 @@ void myFree(void *obj) {
 
         if (&(chunk->data) == obj) {
             // found the obj chunk, calculate next chunk address
-            nextAddr = curr < heapMaxAddr() ? (header *) (curr + chunk->size) : NULL;
+            nextAddr = (curr + chunk->size) < heapMaxAddr() ? (header *) (curr + chunk->size) : NULL;
 
             // free and merge the chunks
             myFreeChunk(prevAddr, chunk, nextAddr);

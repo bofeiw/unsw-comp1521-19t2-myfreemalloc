@@ -44,6 +44,7 @@ int main (int argc, char *argv[])
 	}
 
 	dumpHeap ();
+	freeHeap();
 
 	return EXIT_SUCCESS;
 }
